@@ -387,13 +387,12 @@ target_include_directories (sndfile
 target_link_libraries (sndfile
 	PRIVATE
 		$<$<BOOL:${LIBM_REQUIRED}>:m>
-		$<$<BOOL:${HAVE_EXTERNAL_XIPH_LIBS}>:Ogg::ogg>
-		$<$<BOOL:${HAVE_EXTERNAL_XIPH_LIBS}>:Vorbis::vorbisenc>
-		$<$<BOOL:${HAVE_EXTERNAL_XIPH_LIBS}>:FLAC::FLAC>
-		$<$<AND:$<BOOL:${ENABLE_EXPERIMENTAL}>,$<BOOL:${HAVE_EXTERNAL_XIPH_LIBS}>,$<BOOL:${HAVE_SPEEX}>>:Speex::Speex>
-		$<$<BOOL:${HAVE_EXTERNAL_XIPH_LIBS}>:Opus::opus>
-		$<$<BOOL:${HAVE_MPEG}>:MPG123::libmpg123>
-		$<$<BOOL:${HAVE_MPEG}>:mp3lame::mp3lame>
+        ${FLAC_LIBRARY}
+        ${OGG_LIBRARY}
+        ${MP3LAME_LIBRARY}
+        ${mpg123_LIBRARY}
+        ${Vorbis_Vorbis_LIBRARY}
+        ${OPUS_LIBRARY}
 	)
 set_target_properties (sndfile PROPERTIES
 	PUBLIC_HEADER "${sndfile_HDRS}"
