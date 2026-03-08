@@ -392,6 +392,8 @@ target_link_libraries (sndfile
         ${MP3LAME_LIBRARY}
         ${mpg123_LIBRARY}
         ${Vorbis_Vorbis_LIBRARY}
+        ${Vorbis_Enc_LIBRARY}
+        ${Vorbis_File_LIBRARY}
         ${OPUS_LIBRARY}
 	)
 set_target_properties (sndfile PROPERTIES
