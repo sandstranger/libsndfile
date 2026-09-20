@@ -160,9 +160,9 @@ vorbiscomment_read_tags (SF_PRIVATE *psf, ogg_packet *packet, vorbiscomment_iden
 		for (c = tag ; *c ; c++)
 		{	if (*c == '=')
 				break ;
-			*c = toupper (*c) ;
+			*c = toupper ((unsigned char) *c) ;
 			} ;
-		if (!c)
+		if (*c != '=')
 		{	psf_log_printf (psf, "Malformed Vorbis comment, no '=' found.\n") ;
 			continue ;
 			} ;
