@@ -842,7 +842,7 @@ ogg_opus_write_header (SF_PRIVATE *psf, int UNUSED (calc_length))
 		} ;
 
 	/*
-	** Metadata Tags (manditory)
+	** Metadata Tags (mandatory)
 	**
 	** All tags must be in one packet, which may span pages, and these pages
 	** must not contain any other packets, so flush. The vendor string should
@@ -1807,7 +1807,7 @@ ogg_opus_byterate (SF_PRIVATE *psf)
 			return (ppkt->bytes * 8000) / opus_packet_get_nb_samples (ppkt->packet, ppkt->bytes, 8000) ;
 			} ;
 
-		if (psf->datalength != SF_COUNT_MAX)
+		if (psf->datalength != SF_COUNT_MAX && psf->sf.frames > 0)
 			return (psf->datalength * psf->sf.samplerate) / psf->sf.frames ;
 		} ;
 

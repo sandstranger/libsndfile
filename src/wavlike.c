@@ -1060,13 +1060,14 @@ wavlike_subchunk_parse (SF_PRIVATE *psf, int chunk, uint32_t chunk_length)
 
 						if (psf->cues)
  						{	unsigned int i = 0 ;
+							SF_CUE_POINT *cue_points = psf_cues_points (psf->cues) ;
 
 							/* find id to store label */
-							while (i < psf->cues->cue_count && psf->cues->cue_points [i].indx != mark_id)
+							while (i < psf->cues->cue_count && cue_points [i].indx != mark_id)
 								i++ ;
 
 							if (i < psf->cues->cue_count)
-								memcpy (psf->cues->cue_points [i].name, buffer, sizeof (psf->cues->cue_points [i].name)) ;
+								psf_strlcpy (cue_points [i].name, sizeof (cue_points [i].name), buffer) ;
 							} ;
 						} ;
 					break ;
@@ -1209,9 +1210,14 @@ wavlike_read_peak_chunk (SF_PRIVATE * psf, size_t chunk_size)
 	uint32_t uk ;
 
 	if (chunk_size != WAVLIKE_PEAK_CHUNK_SIZE (psf->sf.channels))
-	{	psf_binheader_readf (psf, "j", chunk_size) ;
-		psf_log_printf (psf, "*** File PEAK chunk size doesn't fit with number of channels (%d).\n", psf->sf.channels) ;
-		return SFE_WAV_BAD_PEAK ;
+	{	/* Some writers (e.g. Adobe Audition) write a PEAK chunk holding a
+		** single peak value for the whole file instead of one value per
+		** channel. The chunk is optional metadata, so skip it and continue
+		** reading the file instead of failing to open it.
+		*/
+		psf_binheader_readf (psf, "j", chunk_size) ;
+		psf_log_printf (psf, "*** File PEAK chunk size doesn't fit with number of channels (%d), skipping PEAK information.\n", psf->sf.channels) ;
+		return 0 ;
 		} ;
 
 	if (psf->peak_info)

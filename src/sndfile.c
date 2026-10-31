@@ -908,6 +908,8 @@ sf_format_check	(const SF_INFO *info)
 					return 0 ;
 				if (subformat == SF_FORMAT_PCM_S8 || subformat == SF_FORMAT_PCM_16 || subformat == SF_FORMAT_PCM_24)
 					return 1 ;
+				if (subformat == SF_FORMAT_PCM_32 && flac_supports_pcm32 ())
+					return 1 ;
 				break ;
 
 		case SF_FORMAT_SD2 :
@@ -1085,8 +1087,12 @@ sf_command	(SNDFILE *sndfile, int command, void *data, int datasize)
 
 			psf->float_int_mult = (datasize != 0) ? SF_TRUE : SF_FALSE ;
 			if (psf->float_int_mult && psf->float_max < 0.0)
-				/* Scale to prevent wrap-around distortion. */
+			{	/* Scale to prevent wrap-around distortion. */
 				psf->float_max = (32768.0 / 32767.0) * psf_calc_signal_max (psf, SF_FALSE) ;
+				/* Silent or non-seekable input gives 0.0, which the readers divide by. */
+				if (psf->float_max <= 0.0)
+					psf->float_max = 1.0 ;
+				} ;
 			return old_value ;
 
 		case SFC_SET_SCALE_INT_FLOAT_WRITE :
@@ -3117,6 +3123,12 @@ psf_open_file (SF_PRIVATE *psf, SF_INFO *sfinfo)
 		{	error = SFE_BAD_OPEN_FORMAT ;
 			goto error_exit ;
 			} ;
+
+		/* Header writers divide by the sample rate (htk.c, sds.c, voc.c). */
+		if (psf->sf.samplerate < 1)
+		{	error = SFE_BAD_SF_INFO ;
+			goto error_exit ;
+			} ;
 		}
 	else if ((SF_CONTAINER (psf->sf.format)) != SF_FORMAT_RAW)
 	{	/* If type RAW has not been specified then need to figure out file type. */
@@ -3377,6 +3389,36 @@ error_exit :
 ** It doesn't work for W64 because W64 uses weird GUID style chunk markers.
 */
 
+/*
+**	The id in SF_CHUNK_INFO is id_size bytes and need not be NUL terminated,
+**	but chunk.c handles ids as C strings. Copy the id into dest, bounded by
+**	id_size, by the id array and by dest_size, and NUL terminate it.
+**
+**	An id_size of zero means the caller never filled it in. Nothing read
+**	id_size before, so those callers passed a NUL terminated id and have to
+**	keep working: fall back to the terminated length. memchr () keeps the
+**	scan inside the array.
+*/
+
+static void
+copy_chunk_id (char * dest, size_t dest_size, const SF_CHUNK_INFO * chunk_info)
+{	size_t len = chunk_info->id_size ;
+
+	if (len == 0)
+	{	const char * nul = memchr (chunk_info->id, 0, sizeof (chunk_info->id)) ;
+
+		len = nul != NULL ? (size_t) (nul - chunk_info->id) : sizeof (chunk_info->id) ;
+		} ;
+
+	if (len > sizeof (chunk_info->id))
+		len = sizeof (chunk_info->id) ;
+	if (len > dest_size - 1)
+		len = dest_size - 1 ;
+
+	memcpy (dest, chunk_info->id, len) ;
+	dest [len] = 0 ;
+} /* copy_chunk_id */
+
 int
 sf_set_chunk (SNDFILE * sndfile, const SF_CHUNK_INFO * chunk_info)
 {	SF_PRIVATE 	*psf ;
@@ -3387,7 +3429,25 @@ sf_set_chunk (SNDFILE * sndfile, const SF_CHUNK_INFO * chunk_info)
 		return SFE_BAD_CHUNK_PTR ;
 
 	if (psf->set_chunk)
-		return psf->set_chunk (psf, chunk_info) ;
+	{	SF_CHUNK_INFO info = *chunk_info ;
+
+		/*
+		**	psf_save_write_chunk () needs the terminator inside the array, so
+		**	an id of the full 64 bytes loses its last byte here. Only the
+		**	first four reach the file.
+		*/
+		copy_chunk_id (info.id, sizeof (info.id), chunk_info) ;
+
+		/*
+		**	Every container that gets here has a four byte chunk marker. A
+		**	shorter id is written NUL padded, and the parsers stop dead at a
+		**	marker like that, so the file would not read back.
+		*/
+		if (strlen (info.id) < 4)
+			return SFE_BAD_CHUNK_MARKER ;
+
+		return psf->set_chunk (psf, &info) ;
+		} ;
 
 	return SFE_BAD_CHUNK_FORMAT ;
 } /* sf_set_chunk */
@@ -3399,7 +3459,12 @@ sf_get_chunk_iterator (SNDFILE * sndfile, const SF_CHUNK_INFO * chunk_info)
 	VALIDATE_SNDFILE_AND_ASSIGN_PSF (sndfile, psf, 1) ;
 
 	if (chunk_info)
-		return psf_get_chunk_iterator (psf, chunk_info->id) ;
+	{	char id [sizeof (chunk_info->id) + 1] ;
+
+		/* Match the first id_size bytes of id (sndfile.h). */
+		copy_chunk_id (id, sizeof (id), chunk_info) ;
+		return psf_get_chunk_iterator (psf, id) ;
+		} ;
 
 	return psf_get_chunk_iterator (psf, NULL) ;
 } /* sf_get_chunk_iterator */

@@ -45,6 +45,10 @@ project(libsndfile VERSION 1.2.2)
 
 set (CMAKE_C_STANDARD 99)
 set (CMAKE_C_STANDARD_REQUIRED TRUE)
+# MinGW's headers hide the Microsoft CRT functions (fileno, strdup, ...) in strict mode.
+if (NOT MINGW)
+	set (CMAKE_C_EXTENSIONS OFF)
+endif ()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set (PACKAGE_NAME ${PROJECT_NAME})
@@ -76,7 +80,6 @@ endif ()
 option (BUILD_PROGRAMS "Build programs" ON)
 option (BUILD_EXAMPLES "Build examples" ON)
 option (ENABLE_CPACK "Enable CPack support" ON)
-option (ENABLE_BOW_DOCS "Enable black-on-white html docs" OFF)
 if (MSVC AND (DEFINED ENABLE_STATIC_RUNTIME))
 	option (ENABLE_STATIC_RUNTIME "Enable static runtime" ${ENABLE_STATIC_RUNTIME})
 elseif (MINGW)
@@ -144,7 +147,6 @@ add_feature_info (ENABLE_EXPERIMENTAL ENABLE_EXPERIMENTAL "enable experimental c
 add_feature_info (BUILD_TESTING BUILD_TESTING "build tests")
 add_feature_info (BUILD_REGTEST BUILD_REGTEST "build regtest")
 add_feature_info (ENABLE_CPACK ENABLE_CPACK "enable CPack support")
-add_feature_info (ENABLE_BOW_DOCS ENABLE_BOW_DOCS "enable black-on-white html docs")
 add_feature_info (ENABLE_PACKAGE_CONFIG ENABLE_PACKAGE_CONFIG "generate and install package config file")
 add_feature_info (INSTALL_PKGCONFIG_MODULE INSTALL_PKGCONFIG_MODULE "generate and install pkg-config module")
 add_feature_info (INSTALL_MANPAGES INSTALL_MANPAGES "install man pages for programs")
@@ -477,7 +479,7 @@ if (BUILD_SHARED_LIBS)
 	if (WIN32)
 		set (SYMBOL_FILENAME "sndfile.def")
 		set (SYMBOL_OS "win32")
-	elseif ((CMAKE_SYSTEM_NAME MATCHES "Darwin") OR (CMAKE_SYSTEM_NAME MATCHES "Rhapsody"))
+	elseif (APPLE OR (CMAKE_SYSTEM_NAME MATCHES "Rhapsody"))
 		set (SYMBOL_FILENAME "Symbols.darwin")
 		set (SYMBOL_OS "darwin")
 	elseif (CMAKE_SYSTEM_NAME MATCHES "OS2")
@@ -867,7 +869,7 @@ if (ENABLE_PACKAGE_CONFIG)
 		endif ()
 else ()
 
-	install (TARGETS sndfile ${sdnfile_PROGRAMS}
+	install (TARGETS sndfile ${SNDFILE_PROGRAM_TARGETS}
 		RUNTIME DESTINATION			${CMAKE_INSTALL_BINDIR}
 		ARCHIVE DESTINATION			${CMAKE_INSTALL_LIBDIR}
 		LIBRARY DESTINATION			${CMAKE_INSTALL_LIBDIR}
@@ -892,13 +894,6 @@ if (INSTALL_MANPAGES)
 	install (FILES man/sndfile-interleave.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 RENAME sndfile-deinterleave.1)
 endif ()
 
-if (ENABLE_BOW_DOCS)
-	set (HTML_BGCOLOUR "white")
-	set (HTML_FGCOLOUR "black")
-else ()
-	set (HTML_BGCOLOUR "black")
-	set (HTML_FGCOLOUR "white")
-endif ()
 set (dist_doc_DATA
 	docs/index.md
 	docs/libsndfile.jpg
@@ -1432,6 +1427,9 @@ if (BUILD_TESTING)
 	add_test (lossy_comp_test_w64_gsm610 lossy_comp_test w64_gsm610)
 	add_test (header_test_w64 header_test w64)
 	add_test (misc_test_w64 misc_test w64)
+
+	### ima-adpcm-tests (all containers)
+	add_test (lossy_comp_test_ima_seek lossy_comp_test ima_seek)
 
 	### rf64-tests
 
